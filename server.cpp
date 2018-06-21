@@ -58,12 +58,12 @@ int main(int argc, char * args[])
 {
     int nProf = numProfiles();
     float * profileData = loadToGPU(nProf);
-    ProfileStats * stats = computeStats(profileData, nGrids, nProf);
+    ProfileStats<nGrids> * stats = computeStats<nGrids>(profileData, nProf);
 
     int nx = (argc > 1) ? atoi(args[1]) : 512;
     int ny = (argc > 2) ? atoi(args[2]) : nx;
     int nU = (argc > 3) ? atoi(args[3]) : 256;
-    StatsView view(nx, ny, stats, nProf);
+    StatsView<nGrids> view(nx, ny, stats, nProf);
     ProfileView pview(nU, profileData, nGrids, nProf);
 
     int portno = (argc > 4) ? atoi(args[4]) : 18888;
