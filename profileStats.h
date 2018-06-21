@@ -33,7 +33,7 @@ void computeIblStats(ProfileStats<nGrids>& stats, const float * u)
     float mean1minusU3 = (deltaStar - 2 * theta + thetaStar) / (nGrids - 1);
     float mean_UminusMeanU_sq = mean1minusU2 - mean1minusU * mean1minusU;
     float mean_UminusMeanU_cu = mean1minusU3
-                              - 3 * mean1minusU2 * mean1minusU;
+                              - 3 * mean1minusU2 * mean1minusU
                               + 2 * mean1minusU * mean1minusU * mean1minusU;
     stats.Hp = mean_UminusMeanU_cu / mean_UminusMeanU_sq;
 }
@@ -54,13 +54,13 @@ void computeSubStats(ProfileStats<nGrids>& stats, const float * u)
         float meanU2 = sumU2 / i;
         float meanU3 = sumU3 / i;
         float mean_UminusMeanU_sq = meanU2 - meanU1 * meanU1;
-        float mean_UminusMeanU_cu = meanU3 - 3 * meanU2 * meanU1;
+        float mean_UminusMeanU_cu = meanU3 - 3 * meanU2 * meanU1
                                   + 2 * meanU1 * meanU1 * meanU1;
         stats.HpSubList[i] = mean_UminusMeanU_cu
                            / mean_UminusMeanU_sq
                            / sqrt(meanU2);
         stats.thetaList[i] = mean_UminusMeanU_sq / meanU2;
-        stats.tauList[i] = u[1] / i * 2;
+        stats.tauList[i] = u[1] / (sqrt(meanU2) / (i / 2));
     }
 }
 

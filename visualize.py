@@ -103,10 +103,14 @@ class Display:
 
     def shutdown(self):
         self.sock.sendall(self.exitMsg)
-        self.server.wait()
+        self.server.kill()
 
     def __del__(self):
         self.shutdown()
 
 d = Display(1024, 1024, 512)
-d.refresh(1, 15, -0.02, 0.12)
+#d.refresh(-1, 2, -4, 8)
+d.refresh(-1, 2, 0, 1.2)
+xlabel(r"$H'$")
+ylabel(r"$\tau$")
+grid()

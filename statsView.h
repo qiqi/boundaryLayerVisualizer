@@ -98,7 +98,7 @@ class StatsView {
     StatsView(int nx, int ny, const ProfileStats<nGrids> * statsGPU,
               int nProf)
         : nx(nx), ny(ny), statsGPU(statsGPU),
-          nProf(nProf), iStatX(0), iStatY(1)
+          nProf(nProf), iStatX(3+40), iStatY(3+nGrids+40)
     {
         cudaMalloc(&resGPU, sizeof(float) * 3 * nx * ny);
         resCPU = new float[3 * nx * ny];
