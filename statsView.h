@@ -25,27 +25,27 @@ int __map(Discretization& disc, float x) {
     return (ix >= disc.nx) ? -1 : ix;
 }
 
+struct Pixel {
+    uint32_t ix, iy;
+};
+
 template<int nGrids>
 __global__
 void _updateView(float * res, const ProfileStats<nGrids> * statsGPU,
-                 int iStatX, int iStatY, int nProf,
+                 Pixel iStats, int nProf,
                  Discretization discX, Discretization discY)
 {
     int iProf = blockDim.x * blockIdx.x + threadIdx.x;
     if (iProf < nProf) {
         const float * stats = statsGPU[iProf].data;
-        int iX = __map(discX, stats[iStatX]);
-        int iY = __map(discY, stats[iStatY]);
+        int iX = __map(discX, stats[iStats.ix]);
+        int iY = __map(discY, stats[iStats.iy]);
         if (iX >= 0 and iY >= 0) {
             float * resPixel = res + (iY * discX.nx + iX) * 3;
             atomicAdd(&resPixel[0], 1.0f);
         }
     }
 }
-
-struct Pixel {
-    uint32_t ix, iy;
-};
 
 struct ViewPort {
     float x0, x1, y0, y1;
@@ -58,12 +58,12 @@ bool isValidViewPort(const ViewPort & port) {
 template<int nGrids>
 __global__
 void _isInView(int * res, const ProfileStats<nGrids> * statsGPU,
-               int iStatX, int iStatY, int nProf, ViewPort viewPort)
+               Pixel iStats, int nProf, ViewPort viewPort)
 {
     int iProf = blockDim.x * blockIdx.x + threadIdx.x;
     if (iProf < nProf) {
-        float statX = statsGPU[iProf].data[iStatX];
-        float statY = statsGPU[iProf].data[iStatY];
+        float statX = statsGPU[iProf].data[iStats.ix];
+        float statY = statsGPU[iProf].data[iStats.iy];
         res[iProf] = (statX >= viewPort.x0 and statX <= viewPort.x1 and 
                       statY >= viewPort.y0 and statY <= viewPort.y1);
     }
@@ -78,27 +78,26 @@ class StatsView {
     const int nProf;
     const ProfileStats<nGrids> * statsGPU;
 
-    int iStatX;
-    int iStatY;
+    Pixel iStats;
 
     ViewPort currentView;
 
     public:
 
-    void setStats(int statX, int statY)
+    void setStats(Pixel newStats)
     {
-        if (statX >= 0 and
-                statX < sizeof(ProfileStats<nGrids>) / sizeof(float))
-            iStatX = statX;
-        if (statY >= 0 and
-                statY < sizeof(ProfileStats<nGrids>) / sizeof(float))
-            iStatY = statY;
+        if (newStats.ix >= 0 and
+                newStats.ix < sizeof(ProfileStats<nGrids>) / sizeof(float))
+            iStats.ix = newStats.ix;
+        if (newStats.iy >= 0 and
+                newStats.iy < sizeof(ProfileStats<nGrids>) / sizeof(float))
+            iStats.iy = newStats.iy;
     }
 
     StatsView(int nx, int ny, const ProfileStats<nGrids> * statsGPU,
               int nProf)
         : nx(nx), ny(ny), statsGPU(statsGPU),
-          nProf(nProf), iStatX(3+40), iStatY(3+nGrids+40)
+          nProf(nProf), iStats{3+20, 3+nGrids*2+20}
     {
         cudaMalloc(&resGPU, sizeof(float) * 3 * nx * ny);
         resCPU = new float[3 * nx * ny];
@@ -120,7 +119,7 @@ class StatsView {
         int threadsPerBlock = 256;
         _isInView<nGrids>
             <<<nBlocks(nProf, threadsPerBlock), threadsPerBlock>>>(
-                resIsInPixel, statsGPU, iStatX, iStatY, nProf, viewPort);
+                resIsInPixel, statsGPU, iStats, nProf, viewPort);
         cudaCheckError();
         return resIsInPixel;
     }
@@ -134,7 +133,7 @@ class StatsView {
         cudaCheckError();
         _updateView<nGrids>
             <<<nBlocks(nProf, threadsPerBlock), threadsPerBlock>>>(
-                resGPU, statsGPU, iStatX, iStatY, nProf,
+                resGPU, statsGPU, iStats, nProf,
                 Discretization{nx, viewPort.x0, viewPort.x1},
                 Discretization{ny, viewPort.y0, viewPort.y1});
         cudaCheckError();

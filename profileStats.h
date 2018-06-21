@@ -42,23 +42,35 @@ template<int nGrids>
 __device__ __forceinline__
 void computeSubStats(ProfileStats<nGrids>& stats, const float * u)
 {
-    float sumU1 = 0.0f, sumU2 = 0.0f, sumU3 = 0.0f;
+    float sumU1 = 0.0f, sumU2 = 0.0f, sumU3 = 0.0f, sumUz = 0.0f;
     for (int i = 1; i < nGrids; ++i) {
         float xGauss = 0.5773502691896258;
+        float zGaussL = (i * (1-xGauss) + (i-1) * (1+xGauss)) / 2;
+        float zGaussR = (i * (1+xGauss) + (i-1) * (1-xGauss)) / 2;
         float uGaussL = (u[i] * (1-xGauss) + u[i-1] * (1+xGauss)) / 2;
         float uGaussR = (u[i] * (1+xGauss) + u[i-1] * (1-xGauss)) / 2;
         sumU1 += (uGaussL + uGaussR) / 2;
         sumU2 += (uGaussL*uGaussL + uGaussR*uGaussR) / 2;
         sumU3 += (uGaussL*uGaussL*uGaussL + uGaussR*uGaussR*uGaussR) / 2;
+        sumUz += (uGaussL*zGaussL + uGaussR*zGaussR) / 2;
         float meanU1 = sumU1 / i;
         float meanU2 = sumU2 / i;
         float meanU3 = sumU3 / i;
+        float meanUz = sumUz / (i*i/2.0);
         float mean_UminusMeanU_sq = meanU2 - meanU1 * meanU1;
         float mean_UminusMeanU_cu = meanU3 - 3 * meanU2 * meanU1
                                   + 2 * meanU1 * meanU1 * meanU1;
-        stats.HpSubList[i] = mean_UminusMeanU_cu
+        float mean_UminusMeanU_sq_U = meanU3 - 2 * meanU2 * meanU1
+                                    + meanU1 * meanU1 * meanU1;
+        //stats.HpSubList[i] = mean_UminusMeanU_cu
+        //                   / mean_UminusMeanU_sq
+        //                   / sqrt(meanU2);
+        stats.HpSubList[i] = (meanU1 - meanUz)
                            / mean_UminusMeanU_sq
-                           / sqrt(meanU2);
+                           * sqrt(meanU2);
+        //stats.HppSubList[i] = mean_UminusMeanU_sq_U
+        //                   / mean_UminusMeanU_sq
+        //                   / sqrt(meanU2);
         stats.thetaList[i] = mean_UminusMeanU_sq / meanU2;
         stats.tauList[i] = u[1] / (sqrt(meanU2) / (i / 2));
     }

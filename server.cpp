@@ -48,9 +48,15 @@ float * loadToGPU(int nProfiles)
 }
 
 struct Message {
-    enum class Type : uint32_t {Exit, UpdateView, SelectProfiles} type;
+    enum class Type : uint32_t {
+        Exit,
+        UpdateView,
+        SelectProfiles,
+        SelectStats
+    } type;
     union {
         ViewPort viewPort;
+        Pixel iStats;
     };
 };
 
@@ -83,6 +89,9 @@ int main(int argc, char * args[])
                 const int * isInView = view.isInView(msg.viewPort);
                 const float * res = pview.update(isInView);
                 connection.send(res, pview.dataSizeBytes());
+            }
+            else if (msg.type == Message::Type::SelectStats) {
+                view.setStats(msg.iStats);
             }
         }
     } catch(const char * e) {

@@ -1,8 +1,11 @@
+import matplotlib
+matplotlib.use('Agg')
 import os
 import time
 import struct
 import socket
 import subprocess
+from pylab import *
 from numpy import *
 
 def recvFloats(sock, nFloats):
@@ -59,17 +62,20 @@ class Display:
 
         self.exitMsg = struct.pack('II', 4, 0)
 
-        fig = figure(1)
+        fig = figure(1, figsize=(nPixStats/100., nPixStats/100.), dpi=100, tight_layout=True)
         self.mouse = MouseSelect(self.mouseRelease)
         fig.canvas.mpl_connect('button_press_event', self.mouse.press)
         fig.canvas.mpl_connect('button_release_event', self.mouse.release)
+
+    def setStats(self, iStatX=None, iStatY=None):
+        sendBytes(self.sock, struct.pack('III8x', 3, iStatX, iStatY))
 
     def refresh(self, x0, x1, y0, y1):
         self.viewport = [x0, x1, y0, y1]
         sendBytes(self.sock, struct.pack('Iffff', 1, x0, x1, y0, y1))
         data = recvFloats(self.sock, self.nx * self.ny * 3)
         self.data = data.reshape([self.nx, self.ny, 3])
-        figure(1)
+        figure(1, figsize=(nPixStats/100., nPixStats/100.), dpi=100, tight_layout=True)
         clf()
         imshow(self.data[:,:,0], cmap='hot', origin='lower',
                 norm=matplotlib.colors.LogNorm(vmin=.5, vmax=self.data.max()),
@@ -77,7 +83,11 @@ class Display:
         gca().set_facecolor('black')
         gca().set_aspect('auto')
         colorbar()
+        grid('on')
         draw()
+
+    def save(self, fname):
+        save(fname, self.data[:,:,0])
 
     def mouseRelease(self, event):
         x0 = min(self.mouse.x0, self.mouse.x1)
@@ -91,7 +101,7 @@ class Display:
         pdata = recvFloats(self.sock, self.nU * self.nGrids)
         self.pdata = pdata.reshape([self.nU, self.nGrids])
         print(self.pdata.max())
-        figure(2)
+        figure(2, figsize=(nPixU, nPixStats), dpi=1, tight_layout=True)
         clf()
         imshow(self.pdata.T, cmap='hot', origin='lower',
                 norm=matplotlib.colors.LogNorm(vmin=.5, vmax=self.pdata.max()),
@@ -108,9 +118,21 @@ class Display:
     def __del__(self):
         self.shutdown()
 
-d = Display(1024, 1024, 512)
-#d.refresh(-1, 2, -4, 8)
-d.refresh(-1, 2, 0, 1.2)
-xlabel(r"$H'$")
-ylabel(r"$\tau$")
-grid()
+nGrids = 160
+
+nPixStats, nPixU = 512, 512
+d = Display(nPixStats, nPixStats, nPixU)
+
+for i in [10, 20, 30, 40, 60, 80, 100, 130, 159]:
+    d.setStats(3+i, 3+nGrids+i)
+    d.refresh(-3,2,0,1)
+    xlabel("$H'$"); ylabel(r'$R$');
+    savefig('R'+str(i))
+    d.save('R'+str(i))
+    d.setStats(3+i, 3+2*nGrids+i)
+    d.refresh(-3,2,-4,8)
+    xlabel("$H'$"); ylabel(r'$\tau$')
+    savefig('tau'+str(i))
+    d.save('tau'+str(i))
+
+d.shutdown()
